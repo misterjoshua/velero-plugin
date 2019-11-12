@@ -2,7 +2,6 @@ package snapshot
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/volume"
@@ -38,7 +37,7 @@ func (c *cloudSnapshotPlugin) CreateVolumeFromSnapshot(snapshotID, volumeType, v
 PageTraversal:
 	for {
 		if continuationToken == "" {
-			c.log.Infof("Querying without continuation token")
+			c.log.Infof("Querying first page")
 		} else {
 			c.log.Infof("Querying with continuation token %v", continuationToken)
 		}
@@ -51,8 +50,10 @@ PageTraversal:
 		enumRequest.CredentialUUID = c.credID
 		enumRequest.All = true
 		enumRequest.ContinuationToken = continuationToken
+		enumRequest.MaxBackups = 10000 // XXX: This is a hack because it looks like pagination doesn't work on the px api at all.
 		enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
 		if err != nil {
+			c.log.WithError(err)
 			return "", err
 		}
 
@@ -65,12 +66,10 @@ PageTraversal:
 			}
 		}
 
-		// Note: There's an extraneous "/" at the end of the continuation token.
-		// This removes it.
-		continuationToken = strings.TrimRight(enumResponse.ContinuationToken, "/")
+		continuationToken = enumResponse.ContinuationToken
 		if continuationToken == "" {
 			// No continuations. We're on the last page.
-			break
+			break PageTraversal
 		}
 	}
 
