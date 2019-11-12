@@ -2,6 +2,7 @@ package snapshot
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/libopenstorage/openstorage/api"
 	"github.com/libopenstorage/openstorage/volume"
@@ -31,22 +32,44 @@ func (c *cloudSnapshotPlugin) CreateVolumeFromSnapshot(snapshotID, volumeType, v
 		return "", err
 	}
 
-	// Enumerating can be expensive but we need to do it to get the original
-	// volume name. Ark already has it so it can pass it down to us.
-	// CloudBackupRestore can also be updated to restore to the original volume
-	// name.
-	enumRequest := &api.CloudBackupEnumerateRequest{}
-	enumRequest.CredentialUUID = c.credID
-	enumRequest.All = true
-	enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
-	if err != nil {
-		return "", err
-	}
-
 	volumeName := ""
-	for _, backup := range enumResponse.Backups {
-		if backup.ID == snapshotID {
-			volumeName = backup.SrcVolumeName
+	var continuationToken string
+
+PageTraversal:
+	for {
+		if continuationToken == "" {
+			c.log.Infof("Querying without continuation token")
+		} else {
+			c.log.Infof("Querying with continuation token %v", continuationToken)
+		}
+
+		// Enumerating can be expensive but we need to do it to get the original
+		// volume name. Ark already has it so it can pass it down to us.
+		// CloudBackupRestore can also be updated to restore to the original volume
+		// name.
+		enumRequest := &api.CloudBackupEnumerateRequest{}
+		enumRequest.CredentialUUID = c.credID
+		enumRequest.All = true
+		enumRequest.ContinuationToken = continuationToken
+		enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
+		if err != nil {
+			return "", err
+		}
+
+		c.log.Infof("There are %v backups on this page", len(enumResponse.Backups))
+
+		for _, backup := range enumResponse.Backups {
+			if backup.ID == snapshotID {
+				volumeName = backup.SrcVolumeName
+				break PageTraversal
+			}
+		}
+
+		// Note: There's an extraneous "/" at the end of the continuation token.
+		// This removes it.
+		continuationToken = strings.TrimRight(enumResponse.ContinuationToken, "/")
+		if continuationToken == "" {
+			// No continuations. We're on the last page.
 			break
 		}
 	}
