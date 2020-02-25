@@ -31,45 +31,17 @@ func (c *cloudSnapshotPlugin) CreateVolumeFromSnapshot(snapshotID, volumeType, v
 		return "", err
 	}
 
+	backups, err := GetBackupInfoCacheByCredID(c.credID).GetCachedBackupInfo(c.log)
+	if err != nil {
+		return "", err
+	}
+
 	volumeName := ""
-	var continuationToken string
-
-PageTraversal:
-	for {
-		if continuationToken == "" {
-			c.log.Infof("Querying first page")
-		} else {
-			c.log.Infof("Querying with continuation token %v", continuationToken)
-		}
-
-		// Enumerating can be expensive but we need to do it to get the original
-		// volume name. Ark already has it so it can pass it down to us.
-		// CloudBackupRestore can also be updated to restore to the original volume
-		// name.
-		enumRequest := &api.CloudBackupEnumerateRequest{}
-		enumRequest.CredentialUUID = c.credID
-		enumRequest.All = true
-		enumRequest.ContinuationToken = continuationToken
-		enumRequest.MaxBackups = 10000 // XXX: This is a hack because it looks like pagination doesn't work on the px api at all.
-		enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
-		if err != nil {
-			c.log.WithError(err)
-			return "", err
-		}
-
-		c.log.Infof("There are %v backups on this page", len(enumResponse.Backups))
-
-		for _, backup := range enumResponse.Backups {
-			if backup.ID == snapshotID {
-				volumeName = backup.SrcVolumeName
-				break PageTraversal
-			}
-		}
-
-		continuationToken = enumResponse.ContinuationToken
-		if continuationToken == "" {
-			// No continuations. We're on the last page.
-			break PageTraversal
+BackupTraversal:
+	for _, backup := range backups {
+		if backup.ID == snapshotID {
+			volumeName = backup.SrcVolumeName
+			break BackupTraversal
 		}
 	}
 
