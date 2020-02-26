@@ -21,7 +21,7 @@ PKG := github.com/portworx/velero-plugin
 
 BUILD_IMAGE ?= golang:1.12-stretch
 
-IMAGE ?= portworx/velero-plugin
+IMAGE ?= wheatstalk/portworx-velero-plugin
 TAG ?= latest
 
 # Which architecture to build - see $(ALL_ARCH) for options.
@@ -65,7 +65,7 @@ _output/bin/$(GOOS)/$(GOARCH)/$(BIN): build-dirs
 
 TTY := $(shell tty -s && echo "-t")
 
-shell: build-dirs 
+shell: build-dirs
 	@echo "running docker: $@"
 	@docker run \
 		-e GOFLAGS \
@@ -91,7 +91,7 @@ container: all
 	cp Dockerfile _output/bin/$(GOOS)/$(GOARCH)/Dockerfile
 	docker build --no-cache -t $(IMAGE):$(TAG) -f _output/bin/$(GOOS)/$(GOARCH)/Dockerfile _output/bin/$(GOOS)/$(GOARCH)
 
-deploy: 
+deploy:
 	docker push $(IMAGE):$(TAG)
 
 all-ci: $(addprefix ci-, $(BIN))
@@ -115,10 +115,10 @@ lint:
 	    	exit 1; \
 	    fi; \
 	done
-	
+
 vet:
 	go vet $(PKGS)
-	
+
 errcheck:
 	go get -v -u github.com/kisielk/errcheck
 	errcheck -verbose -blank $(PKGS)
