@@ -37,7 +37,7 @@ func (c *BackupInfoCache) GetCachedBackupInfo(logger logrus.FieldLogger) ([]api.
 	minutesSinceLastRefresh := durationSinceLastRefreshed.Minutes()
 	logger.Infof("Minutes since last refresh: %v", minutesSinceLastRefresh)
 
-	if minutesSinceLastRefresh > 5 {
+	if minutesSinceLastRefresh > 60 {
 		logger.Infof("Refreshing backup info cache")
 		backups, err := enumerateBackups(logger, c.credID)
 		if err != nil {
@@ -80,7 +80,7 @@ PageTraversal:
 		enumRequest.CredentialUUID = credID
 		enumRequest.All = true
 		enumRequest.ContinuationToken = continuationToken
-		enumRequest.MaxBackups = 10000 // XXX: This is a hack because it looks like pagination doesn't work on the px api at all.
+		enumRequest.MaxBackups = 100 // XXX: Set this back to 10000 if it looks like px api pagination was broken again
 		enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
 		if err != nil {
 			logger.WithError(err)
