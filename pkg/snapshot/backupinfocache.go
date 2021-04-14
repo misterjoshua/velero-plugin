@@ -80,7 +80,7 @@ PageTraversal:
 		enumRequest.CredentialUUID = credID
 		enumRequest.All = true
 		enumRequest.ContinuationToken = continuationToken
-		enumRequest.MaxBackups = 100 // XXX: Set this back to 10000 if it looks like px api pagination was broken again
+		enumRequest.MaxBackups = 1000 // XXX: Set this back to 10000 if it looks like px api pagination was broken again
 		enumResponse, err := volDriver.CloudBackupEnumerate(enumRequest)
 		if err != nil {
 			logger.WithError(err)
